@@ -1,4 +1,4 @@
-module github.com/andrei-cloud/go-devops
+module github.com/scrolllockdev/test-devops
 
 go 1.18
 

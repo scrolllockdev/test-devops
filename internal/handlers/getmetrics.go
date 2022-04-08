@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/andrei-cloud/go-devops/internal/model"
-	"github.com/andrei-cloud/go-devops/internal/repo"
 	"github.com/go-chi/chi"
+	"github.com/scrolllockdev/test-devops/internal/model"
+	"github.com/scrolllockdev/test-devops/internal/repo"
 )
 
 func GetMetrics(repo repo.Repository) http.HandlerFunc {

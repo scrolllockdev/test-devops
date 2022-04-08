@@ -11,10 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/andrei-cloud/go-devops/internal/repo"
-	"github.com/andrei-cloud/go-devops/internal/router"
-	"github.com/andrei-cloud/go-devops/internal/storage/filestore"
-	"github.com/andrei-cloud/go-devops/internal/storage/inmem"
+	"github.com/scrolllockdev/test-devops/internal/repo"
+	"github.com/scrolllockdev/test-devops/internal/router"
+	"github.com/scrolllockdev/test-devops/internal/storage/filestore"
+	"github.com/scrolllockdev/test-devops/internal/storage/inmem"
 
 	"github.com/caarlos0/env"
 	"github.com/go-chi/chi"

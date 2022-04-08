@@ -1,10 +1,10 @@
 package router
 
 import (
-	"github.com/andrei-cloud/go-devops/internal/handlers"
-	mw "github.com/andrei-cloud/go-devops/internal/middlewares"
-	"github.com/andrei-cloud/go-devops/internal/repo"
 	"github.com/go-chi/chi"
+	"github.com/scrolllockdev/test-devops/internal/handlers"
+	mw "github.com/scrolllockdev/test-devops/internal/middlewares"
+	"github.com/scrolllockdev/test-devops/internal/repo"
 )
 
 func SetupRouter(repo repo.Repository) *chi.Mux {

@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/andrei-cloud/go-devops/internal/agent"
-	"github.com/andrei-cloud/go-devops/internal/collector"
+	"github.com/scrolllockdev/test-devops/internal/agent"
+	"github.com/scrolllockdev/test-devops/internal/collector"
 )
 
 func main() {

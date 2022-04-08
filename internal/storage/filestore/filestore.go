@@ -10,8 +10,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/andrei-cloud/go-devops/internal/model"
-	"github.com/andrei-cloud/go-devops/internal/repo"
+	"github.com/scrolllockdev/test-devops/internal/model"
+	"github.com/scrolllockdev/test-devops/internal/repo"
 )
 
 type Filestore interface {

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/andrei-cloud/go-devops/internal/router"
-	"github.com/andrei-cloud/go-devops/internal/storage/inmem"
+	"github.com/scrolllockdev/test-devops/internal/router"
+	"github.com/scrolllockdev/test-devops/internal/storage/inmem"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

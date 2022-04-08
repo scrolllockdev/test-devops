@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/andrei-cloud/go-devops/internal/collector"
-	"github.com/andrei-cloud/go-devops/internal/model"
 	"github.com/caarlos0/env"
+	"github.com/scrolllockdev/test-devops/internal/collector"
+	"github.com/scrolllockdev/test-devops/internal/model"
 )
 
 var (

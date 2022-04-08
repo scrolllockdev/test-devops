@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/andrei-cloud/go-devops/internal/repo"
+	"github.com/scrolllockdev/test-devops/internal/repo"
 )
 
 type storage struct {
