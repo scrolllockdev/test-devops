@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -9,8 +10,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"path"
 	"runtime"
+	"syscall"
 	"time"
 )
 
@@ -28,18 +31,16 @@ func updateMetricURL(serverAddress string) string {
 	return resultURL.String() + "/"
 }
 
-
-func sendMetric(metric []byte, client *http.Client, cfg Config) error {
+func sendMetric(metric []byte, client *http.Client, cfg Config, ctx context.Context) error {
 	endpoint := updateMetricURL(cfg.ServerAddress)
 	fmt.Printf("Отправка метрик на %s\n", endpoint)
-	request, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(metric))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(metric))
 	if err != nil {
 		fmt.Printf("Error while reading %s: %v", endpoint, err)
 		return err
 	}
 	request.Header.Set("Content-Type", "application/json")
 
-	
 	response, err := client.Do(request)
 	if err != nil {
 		fmt.Printf("Error while sending request %s: %v \n", endpoint, err)
@@ -84,7 +85,7 @@ func convertGaugeMetricToJSON(name, mType string, value gauge) []byte {
 		fmt.Println("something wrong with marshal", err)
 		panic(err)
 	}
-	
+
 	return metricJSON
 }
 
@@ -103,6 +104,14 @@ func main() {
 	transport := &http.Transport{}
 	transport.MaxIdleConns = 60
 	client.Transport = transport
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+	<-sig
+
+	cancel()
 
 	pollTicker := time.NewTicker(cfg.PollInterval)
 	defer pollTicker.Stop()
@@ -130,18 +139,19 @@ func main() {
 		case <-reportTicker.C:
 			metricsCounter = 0
 			for name, value := range metrics.gaugeMetricsStorage {
-				if err := sendMetric(convertGaugeMetricToJSON(name, "gauge", value), client, cfg); err != nil {
+				if err := sendMetric(convertGaugeMetricToJSON(name, "gauge", value), client, cfg, ctx); err != nil {
 					fmt.Println(err, string(convertGaugeMetricToJSON(name, "gauge", value)))
 				} else {
 					fmt.Println("Success send metric", string(convertGaugeMetricToJSON(name, "gauge", value)))
 				}
 			}
 			for name, value := range metrics.counterMetricsStorage {
-				if err := sendMetric(convertCounterMetricToJSON(name, "counter", value), client, cfg); err != nil {
+				if err := sendMetric(convertCounterMetricToJSON(name, "counter", value), client, cfg, ctx); err != nil {
 					fmt.Println("Success send metric", string(convertCounterMetricToJSON(name, "counter", value)))
 					fmt.Println(err)
 				}
 			}
 		}
 	}
+
 }
