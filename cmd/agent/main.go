@@ -10,10 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/signal"
 	"path"
 	"runtime"
-	"syscall"
 	"time"
 )
 
@@ -105,13 +103,7 @@ func main() {
 	transport.MaxIdleConns = 60
 	client.Transport = transport
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
-	<-sig
-
-	cancel()
+	ctx, _ := context.WithCancel(context.Background())
 
 	pollTicker := time.NewTicker(cfg.PollInterval)
 	defer pollTicker.Stop()
@@ -153,5 +145,4 @@ func main() {
 			}
 		}
 	}
-
 }
