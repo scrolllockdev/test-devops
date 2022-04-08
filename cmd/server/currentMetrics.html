@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Current Metrics</title>
+</head>
+<body>
+<h1>Текущие сохраненные метрики:</h1>
+{{range .}}
+ <h3>{{.ID}} {{.Value}} {{.Delta}}</h3>
+{{end}}
+</body>
+</html>
