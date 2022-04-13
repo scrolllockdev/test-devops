@@ -2,27 +2,31 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/scrolllockdev/test-devops/internal/agent"
-	"github.com/scrolllockdev/test-devops/internal/collector"
+	"github.com/scrolllockdev/test-devops/internal/agent/config"
 )
 
 func main() {
-	collector := collector.NewCollector()
-	agent := agent.NewAgent(collector, nil)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	cfg := config.Config{}
+	if err := cfg.ReadConfig(); err != nil {
+		panic(err)
+	}
 
-	go agent.Run(ctx)
+	a := agent.Agent{}
+	agent := a.Init(cfg)
+
+	context, cancel := context.WithCancel(context.Background())
+	go agent.Run(context)
 
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT)
 	<-sig
 
 	cancel()
-	fmt.Println("agent quit")
+
 }
