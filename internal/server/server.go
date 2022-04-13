@@ -5,13 +5,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -92,45 +90,6 @@ func (s *Server) Run(ctx context.Context) {
 
 }
 
-func readFile(path string) ([]byte, error) {
-	parentPath, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	pullPath := filepath.Join(parentPath, path)
-	file, err := os.Open(pullPath)
-	if err != nil {
-		return nil, err
-	}
-
-	defer file.Close()
-	return read(file)
-}
-
-func read(fd_r io.Reader) ([]byte, error) {
-	br := bufio.NewReader(fd_r)
-	var buf bytes.Buffer
-
-	for {
-		ba, isPrefix, err := br.ReadLine()
-
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, err
-		}
-
-		buf.Write(ba)
-		if !isPrefix {
-			buf.WriteByte('\n')
-		}
-
-	}
-	return buf.Bytes(), nil
-}
-
 func (s *Server) restoreFromFile(storage *storage.Storage) error {
 	pwd, _ := os.Getwd()
 	tmpDirEx, err := storage.DirExist(path.Join(pwd, "tmp"))
@@ -143,39 +102,42 @@ func (s *Server) restoreFromFile(storage *storage.Storage) error {
 	}
 
 	file, err := os.OpenFile(path.Join(pwd, s.dbPath), os.O_RDONLY, 0755)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		data := scanner.Bytes()
-		err = json.Unmarshal(data, &s.storage)
+	defer file.Close()
+	// scanner := bufio.NewScanner(file)
+	// for scanner.Scan() {
+	// 	data := scanner.Bytes()
+	// 	err = json.Unmarshal(data, &s.storage)
 
-		if err != nil {
-			return err
-		}
-
-	}
-	// var buf bytes.Buffer
-	// reader := bufio.NewReader(file)
-	// for {
-	// 	line, err := reader.ReadBytes('\n')
 	// 	if err != nil {
-	// 		if err == io.EOF {
-	// 			buf.Write(line)
-	// 			break
-	// 		} else {
-	// 			return err
-	// 		}
+	// 		fmt.Println(data)
+	// 		return err
 	// 	}
-	// 	buf.Write(line)
-	// }
-	// if err != nil {
-	// 	return err
-	// }
 
-	// err = json.Unmarshal(buf.Bytes(), &s.storage)
-	if err := scanner.Err(); !errors.Is(err, io.EOF) && err != nil {
+	// }
+	var buf bytes.Buffer
+	reader := bufio.NewReader(file)
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			if err == io.EOF {
+				buf.Write(line)
+				break
+			} else {
+				return err
+			}
+		}
+		buf.Write(line)
+	}
+	if err != nil {
 		return err
 	}
-	defer file.Close()
+
+	err = json.Unmarshal(buf.Bytes(), &s.storage)
+
+	if err != nil {
+		return err
+	}
+
 	fmt.Println("metrics restored")
 	return nil
 }
@@ -195,6 +157,9 @@ func (s *Server) storeToFile() error {
 	data, _ := json.MarshalIndent(s.storage, "", "  ")
 
 	// data = append(data, '\n')
+	if err := os.Truncate(path.Join(pwd, s.dbPath), 0); err != nil {
+		fmt.Printf("Failed to truncate: %v\n", err)
+	}
 
 	file, err := os.OpenFile(path.Join(pwd, s.dbPath), os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
