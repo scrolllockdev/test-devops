@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"io"
 	"net/http"
 	"os"
@@ -203,19 +202,25 @@ func (s *Server) currentMetric() http.HandlerFunc {
 //}
 func (s *Server) allMetrics() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		pwd, err := os.Getwd()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-		tmp, err := template.ParseFiles(path.Join(pwd, "currentMetrics.html"))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		w.Header().Add("Accept-Encoding", "gzip")
+		w.Header().Add("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		// res := s.storage.Storage[0]
+		io.WriteString(w, "hello")
+		io.WriteString(w, " world")
+		// pwd, err := os.Getwd()
+		// if err != nil {
+		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+		// }
+		// tmp, err := template.ParseFiles(path.Join(pwd, "currentMetrics.html"))
+		// if err != nil {
+		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+		// }
 
-		err = tmp.Execute(w, s.storage.Storage)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		// err = tmp.Execute(w, s.storage.Storage)
+		// if err != nil {
+		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+		// }
 	}
 }
 
