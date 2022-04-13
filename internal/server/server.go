@@ -191,7 +191,7 @@ func (s *Server) storeToFile() error {
 
 	data, _ := json.MarshalIndent(s.storage, "", "  ")
 
-	data = append(data, '\n')
+	// data = append(data, '\n')
 
 	file, err := os.OpenFile(path.Join(pwd, s.dbPath), os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
