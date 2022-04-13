@@ -1,0 +1,14 @@
+{
+  "Storage": [
+    {
+      "id": "qweqeweq",
+      "type": "gauge",
+      "value": 55555
+    },
+    {
+      "id": "qweqeweq",
+      "type": "counter",
+      "delta": 1
+    }
+  ]
+}
