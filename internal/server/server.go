@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -139,41 +140,43 @@ func (s *Server) restoreFromFile(storage *storage.Storage) error {
 	if !tmpDirEx {
 		fmt.Println("nothing to restore")
 		return nil
-	} else {
-		fmt.Println("metrics restored")
 	}
-
-	ba, err := readFile(s.dbPath)
-	if err != nil {
-		fmt.Println("Error: %s\n", err)
-	}
-	fmt.Printf("The content of '%s' : \n%s\n", s.dbPath, ba)
 
 	file, err := os.OpenFile(path.Join(pwd, s.dbPath), os.O_RDONLY, 0755)
-	var buf bytes.Buffer
-	reader := bufio.NewReader(file)
-	for {
-		line, err := reader.ReadBytes('\n')
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		data := scanner.Bytes()
+		err = json.Unmarshal(data, &s.storage)
+
 		if err != nil {
-			if err == io.EOF {
-				buf.Write(line)
-				break
-			} else {
-				return err
-			}
+			return err
 		}
-		buf.Write(line)
-	}
-	if err != nil {
-		return err
-	}
 
-	err = json.Unmarshal(buf.Bytes(), &s.storage)
+	}
+	// var buf bytes.Buffer
+	// reader := bufio.NewReader(file)
+	// for {
+	// 	line, err := reader.ReadBytes('\n')
+	// 	if err != nil {
+	// 		if err == io.EOF {
+	// 			buf.Write(line)
+	// 			break
+	// 		} else {
+	// 			return err
+	// 		}
+	// 	}
+	// 	buf.Write(line)
+	// }
+	// if err != nil {
+	// 	return err
+	// }
 
-	if err != nil {
+	// err = json.Unmarshal(buf.Bytes(), &s.storage)
+	if err := scanner.Err(); !errors.Is(err, io.EOF) && err != nil {
 		return err
 	}
 	defer file.Close()
+	fmt.Println("metrics restored")
 	return nil
 }
 
