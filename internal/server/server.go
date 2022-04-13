@@ -205,9 +205,10 @@ func (s *Server) allMetrics() http.HandlerFunc {
 		w.Header().Add("Accept-Encoding", "gzip")
 		w.Header().Add("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
+		for item := range s.storage.Storage {
+			io.WriteString(w, s.storage.Storage[item].ID+"\n")
+		}
 		// res := s.storage.Storage[0]
-		io.WriteString(w, "hello")
-		io.WriteString(w, " world")
 		// pwd, err := os.Getwd()
 		// if err != nil {
 		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
