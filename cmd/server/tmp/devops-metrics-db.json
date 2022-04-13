@@ -9,6 +9,11 @@
       "id": "qweqeweq",
       "type": "counter",
       "delta": 1
+    },
+    {
+      "id": "qwezzzqeweq",
+      "type": "counter",
+      "delta": 2
     }
   ]
 }

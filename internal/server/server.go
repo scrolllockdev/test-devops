@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -90,6 +91,45 @@ func (s *Server) Run(ctx context.Context) {
 
 }
 
+func readFile(path string) ([]byte, error) {
+	parentPath, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	pullPath := filepath.Join(parentPath, path)
+	file, err := os.Open(pullPath)
+	if err != nil {
+		return nil, err
+	}
+
+	defer file.Close()
+	return read(file)
+}
+
+func read(fd_r io.Reader) ([]byte, error) {
+	br := bufio.NewReader(fd_r)
+	var buf bytes.Buffer
+
+	for {
+		ba, isPrefix, err := br.ReadLine()
+
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+
+		buf.Write(ba)
+		if !isPrefix {
+			buf.WriteByte('\n')
+		}
+
+	}
+	return buf.Bytes(), nil
+}
+
 func (s *Server) restoreFromFile(storage *storage.Storage) error {
 	pwd, _ := os.Getwd()
 	tmpDirEx, err := storage.DirExist(path.Join(pwd, "tmp"))
@@ -102,6 +142,13 @@ func (s *Server) restoreFromFile(storage *storage.Storage) error {
 	} else {
 		fmt.Println("metrics restored")
 	}
+
+	ba, err := readFile(s.dbPath)
+	if err != nil {
+		fmt.Println("Error: %s\n", err)
+	}
+	fmt.Printf("The content of '%s' : \n%s\n", s.dbPath, ba)
+
 	file, err := os.OpenFile(path.Join(pwd, s.dbPath), os.O_RDONLY, 0755)
 	var buf bytes.Buffer
 	reader := bufio.NewReader(file)
