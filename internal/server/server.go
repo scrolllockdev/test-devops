@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -192,36 +193,21 @@ func (s *Server) currentMetric() http.HandlerFunc {
 	}
 }
 
-//func Default() http.HandlerFunc {
-//	return func(w http.ResponseWriter, r *http.Request) {
-//		w.Header().Add("Accept-Encoding", "gzip")
-//		w.Header().Add("Content-Type", "text/html")
-//		w.WriteHeader(http.StatusOK)
-//		io.WriteString(w, "<html><body>"+strings.Repeat("Hello, it's metrics server<br>", 20)+"</body></html>")
-//	}
-//}
 func (s *Server) allMetrics() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Accept-Encoding", "gzip")
 		w.Header().Add("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
 		for item := range s.storage.Storage {
-			io.WriteString(w, s.storage.Storage[item].ID+"\n")
+			val := ""
+			if s.storage.Storage[item].MType == "gauge" {
+				val = strconv.FormatFloat(*s.storage.Storage[item].Value, 'e', -1, 64)
+			} else {
+				val = strconv.FormatInt(*s.storage.Storage[item].Delta, 32)
+			}
+			metric := fmt.Sprintf("%s - %s - %s<br>", s.storage.Storage[item].ID, s.storage.Storage[item].MType, val)
+			io.WriteString(w, "<html><body>"+metric+"</html></body>")
 		}
-		// res := s.storage.Storage[0]
-		// pwd, err := os.Getwd()
-		// if err != nil {
-		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-		// }
-		// tmp, err := template.ParseFiles(path.Join(pwd, "currentMetrics.html"))
-		// if err != nil {
-		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-		// }
-
-		// err = tmp.Execute(w, s.storage.Storage)
-		// if err != nil {
-		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-		// }
 	}
 }
 
