@@ -156,12 +156,11 @@ func (s *Server) storeToFile() error {
 
 	data, _ := json.MarshalIndent(s.storage, "", "  ")
 
-	// data = append(data, '\n')
-	if err := os.Truncate(path.Join(pwd, s.dbPath), 0); err != nil {
-		fmt.Printf("Failed to truncate: %v\n", err)
-	}
+	// if err := os.Truncate(path.Join(pwd, s.dbPath), 0); err != nil {
+	// 	fmt.Printf("Failed to truncate: %v\n", err)
+	// }
 
-	file, err := os.OpenFile(path.Join(pwd, s.dbPath), os.O_WRONLY|os.O_CREATE, 0755)
+	file, err := os.OpenFile(path.Join(pwd, s.dbPath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return err
 	}
