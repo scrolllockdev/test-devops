@@ -81,7 +81,7 @@ func (s *Server) Run(ctx context.Context) {
 		}
 	}
 	s.r.Use(mw.GzipMW)
-	s.r.Post("/update/{type}/{name}/{value}", s.updateMetric())
+	s.r.Post("/update/{type}/{name}/{value}", s.UpdateMetric())
 	s.r.Get("/value/{type}/{name}", s.currentMetric())
 	s.r.Get("/", s.allMetrics())
 	s.r.Post("/update/", s.updateMetricFromBody())
@@ -156,10 +156,6 @@ func (s *Server) storeToFile() error {
 
 	data, _ := json.MarshalIndent(s.storage, "", "  ")
 
-	// if err := os.Truncate(path.Join(pwd, s.dbPath), 0); err != nil {
-	// 	fmt.Printf("Failed to truncate: %v\n", err)
-	// }
-
 	file, err := os.OpenFile(path.Join(pwd, s.dbPath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return err
@@ -175,7 +171,7 @@ func (s *Server) storeToFile() error {
 	return nil
 }
 
-func (s *Server) updateMetric() http.HandlerFunc {
+func (s *Server) UpdateMetric() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		stat := strings.Split(r.URL.String(), "/")
 		if err, statusCode := s.storage.UpdateMetric(stat); err != nil {
