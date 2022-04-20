@@ -296,8 +296,7 @@ func (s *Server) EqualHash(next http.Handler) http.Handler {
 
 func (s *Server) pingDB() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		db, err := sql.Open("postgres",
-			"db.db")
+		db, err := sql.Open("postgres", s.db)
 		if err != nil {
 			panic(err)
 		}
@@ -311,5 +310,6 @@ func (s *Server) pingDB() http.HandlerFunc {
 		}
 
 		w.WriteHeader(http.StatusOK)
+		return
 	}
 }
