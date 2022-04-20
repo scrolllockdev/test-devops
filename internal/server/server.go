@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -33,6 +34,7 @@ type Server struct {
 	restore       bool
 	storage       storage.Storage
 	db            string
+	key           string
 }
 
 func (s *Server) Init(cfg config.Config) *Server {
@@ -42,6 +44,7 @@ func (s *Server) Init(cfg config.Config) *Server {
 	s.storeInterval = cfg.StoreInterval
 	s.dbPath = cfg.StorePath
 	s.restore = cfg.Restore
+	s.key = cfg.Key
 
 	s.server = &http.Server{
 		Addr:    s.address,
@@ -87,10 +90,11 @@ func (s *Server) Run(ctx context.Context) {
 		}
 	}
 	s.r.Use(mw.GzipMW)
+	s.r.Use(s.EqualHash)
 	s.r.Post("/update/{type}/{name}/{value}", s.UpdateMetric())
 	s.r.Get("/value/{type}/{name}", s.currentMetric())
 	s.r.Get("/", s.allMetrics())
-	s.r.Get("/ping", s.ping())
+	s.r.Get("/ping", s.pingDB())
 	s.r.Post("/update/", s.updateMetricFromBody())
 	s.r.Post("/value/", s.getMetricValueFromBody())
 	go s.server.ListenAndServe()
@@ -269,24 +273,52 @@ func (s *Server) Shutdown() {
 	}
 }
 
-func (s *Server) ping() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (s *Server) EqualHash(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			var metric model.Metric
 
-		db, err := sql.Open("postgres", s.db)
+			bodyBytes, _ := ioutil.ReadAll(r.Body)
+			r.Body.Close()
+			r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+
+			if len(bodyBytes) == 0 {
+				next.ServeHTTP(w, r)
+			}
+
+			if err := json.Unmarshal(bodyBytes, &metric); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			hashesIsEqual := mw.CheckHash(metric, s.key)
+			if !hashesIsEqual {
+				http.Error(w, "status bad request", http.StatusBadRequest)
+				return
+			}
+		}
+
+		next.ServeHTTP(w, r)
+
+	})
+}
+
+func (s *Server) pingDB() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		db, err := sql.Open("postgres",
+			"db.db")
 		if err != nil {
 			panic(err)
 		}
 		defer db.Close()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
-
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
-		return
 	}
 }

@@ -14,6 +14,7 @@ type Config struct {
 	Restore       bool          `env:"RESTORE"`
 	Shutdown      time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"5s"`
 	DBpath        string        `env:"DATABASE_DSN"`
+	Key           string        `env:"KEY"`
 }
 
 func (config *Config) ReadConfig() error {
@@ -23,7 +24,13 @@ func (config *Config) ReadConfig() error {
 	flag.DurationVar(&config.StoreInterval, "i", 300*time.Second, "store interval")
 	flag.StringVar(&config.StorePath, "f", "tmp/devops-metrics-db.json", "path to db file")
 	flag.StringVar(&config.DBpath, "d", "", "postgres")
+	flag.StringVar(&config.Key, "k", "", "key for sha256")
 	flag.Parse()
+
+	key, exist := os.LookupEnv("KEY")
+	if exist {
+		config.Key = key
+	}
 
 	dbPath, exist := os.LookupEnv("DATABASE_DSN")
 	if exist {
