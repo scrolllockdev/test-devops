@@ -10,6 +10,7 @@ type Config struct {
 	ServerAddress  string        `env:"ADDRESS" envDefault:"127.0.0.1:8080"`
 	ReportInterval time.Duration `env:"REPORT_INTERVAL" envDefault:"10s"`
 	PollInterval   time.Duration `env:"POLL_INTERVAL" envDefault:"2s"`
+	Key            string        `env:"KEY"`
 }
 
 func (config *Config) ReadConfig() error {
@@ -17,7 +18,13 @@ func (config *Config) ReadConfig() error {
 	flag.StringVar(&config.ServerAddress, "a", "127.0.0.1:8080", "server address")
 	flag.DurationVar(&config.ReportInterval, "r", 10*time.Second, "report interval")
 	flag.DurationVar(&config.PollInterval, "p", 2*time.Second, "poll interval")
+	flag.StringVar(&config.Key, "k", "", "key for sha256")
 	flag.Parse()
+
+	key, exist := os.LookupEnv("KEY")
+	if exist {
+		config.Key = key
+	}
 
 	serverAddress, exist := os.LookupEnv("ADDRESS")
 	if exist {

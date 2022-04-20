@@ -10,6 +10,7 @@ import (
 	"path"
 	"strconv"
 
+	mw "github.com/scrolllockdev/test-devops/internal/server/middlewares"
 	"github.com/scrolllockdev/test-devops/internal/server/model"
 )
 
@@ -150,6 +151,7 @@ func (s *Storage) UpdateMetricFromRequest(r *http.Request) (error, int) {
 		for index, item := range s.Storage {
 			if item.ID == metric.ID && item.MType == metric.MType {
 				s.Storage[index].Value = metric.Value
+				s.Storage[index].IncomingHash = metric.Hash
 				metricIsUpdated = true
 				break
 			}
@@ -168,6 +170,7 @@ func (s *Storage) UpdateMetricFromRequest(r *http.Request) (error, int) {
 				delta := *s.Storage[index].Delta
 				delta += *metric.Delta
 				s.Storage[index].Delta = &delta
+				s.Storage[index].IncomingHash = metric.Hash
 				metricIsUpdated = true
 				break
 			}
@@ -181,7 +184,7 @@ func (s *Storage) UpdateMetricFromRequest(r *http.Request) (error, int) {
 	}
 }
 
-func (s *Storage) GetValueMetricFromBody(r *http.Request) (error, int, []byte) {
+func (s *Storage) GetValueMetricFromBody(r *http.Request, key string) (error, int, []byte) {
 
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -196,6 +199,14 @@ func (s *Storage) GetValueMetricFromBody(r *http.Request) (error, int, []byte) {
 
 	for _, item := range s.Storage {
 		if item.ID == metric.ID && item.MType == metric.MType {
+			if len(key) != 0 {
+				fmt.Println(item)
+				hash, err := mw.Hash(item, key)
+				if err != nil {
+					return err, http.StatusBadRequest, nil
+				}
+				item.Hash = hash
+			}
 			metricJSON, err := json.Marshal(item)
 			if err != nil {
 				return err, http.StatusInternalServerError, nil

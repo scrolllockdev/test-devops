@@ -20,6 +20,7 @@ type Agent struct {
 	pollInterval   time.Duration
 	reportInterval time.Duration
 	endpoint       string
+	key            string
 }
 
 func (a *Agent) postRequest(ctx context.Context, value []byte) error {
@@ -54,6 +55,8 @@ func (a *Agent) Init(cfg config.Config) *Agent {
 	a.pollInterval = cfg.PollInterval
 	a.reportInterval = cfg.ReportInterval
 	a.endpoint = getEndpoint(cfg.ServerAddress)
+	a.key = cfg.Key
+
 	return a
 }
 
@@ -86,7 +89,7 @@ func (a *Agent) Run(ctx context.Context) {
 		case t := <-reportTicker.C:
 			counter = 0
 			for key, value := range metrics.GaugeStorage {
-				body := converter.GaugeToJSON(key, value)
+				body := converter.GaugeToJSON(key, value, a.key)
 				if err := a.postRequest(ctx, body); err != nil {
 					fmt.Println(err)
 				}
@@ -94,7 +97,7 @@ func (a *Agent) Run(ctx context.Context) {
 			fmt.Printf("gauge metrics are sended in %s\n", t)
 
 			for key, value := range metrics.CounterStorage {
-				body := converter.CounterToJSON(key, value)
+				body := converter.CounterToJSON(key, value, a.key)
 				if err := a.postRequest(ctx, body); err != nil {
 					fmt.Println(err)
 				}

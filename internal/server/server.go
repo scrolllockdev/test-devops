@@ -16,9 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi"
 	_ "github.com/lib/pq"
-
-	"github.com/go-chi/chi/v5"
 	"github.com/scrolllockdev/test-devops/internal/server/config"
 	mw "github.com/scrolllockdev/test-devops/internal/server/middlewares"
 	"github.com/scrolllockdev/test-devops/internal/server/model"
@@ -33,7 +32,6 @@ type Server struct {
 	dbPath        string
 	restore       bool
 	storage       storage.Storage
-	db            string
 	key           string
 }
 
@@ -44,7 +42,6 @@ func (s *Server) Init(cfg config.Config) *Server {
 	s.storeInterval = cfg.StoreInterval
 	s.dbPath = cfg.StorePath
 	s.restore = cfg.Restore
-	s.key = cfg.Key
 
 	s.server = &http.Server{
 		Addr:    s.address,
@@ -55,7 +52,7 @@ func (s *Server) Init(cfg config.Config) *Server {
 		Storage: make([]model.Metric, 0),
 	}
 
-	s.db = cfg.DBpath
+	s.key = cfg.Key
 
 	return s
 }
@@ -91,12 +88,12 @@ func (s *Server) Run(ctx context.Context) {
 	}
 	s.r.Use(mw.GzipMW)
 	s.r.Use(s.EqualHash)
-	s.r.Post("/update/{type}/{name}/{value}", s.UpdateMetric())
+	s.r.Post("/update/{type}/{name}/{value}", s.updateMetric())
 	s.r.Get("/value/{type}/{name}", s.currentMetric())
 	s.r.Get("/", s.allMetrics())
-	s.r.Get("/ping", s.pingDB())
 	s.r.Post("/update/", s.updateMetricFromBody())
 	s.r.Post("/value/", s.getMetricValueFromBody())
+	s.r.Get("/ping", s.pingDB())
 	go s.server.ListenAndServe()
 
 }
@@ -110,21 +107,10 @@ func (s *Server) restoreFromFile(storage *storage.Storage) error {
 	if !tmpDirEx {
 		fmt.Println("nothing to restore")
 		return nil
+	} else {
+		fmt.Println("metrics restored")
 	}
-
 	file, err := os.OpenFile(path.Join(pwd, s.dbPath), os.O_RDONLY, 0755)
-	defer file.Close()
-	// scanner := bufio.NewScanner(file)
-	// for scanner.Scan() {
-	// 	data := scanner.Bytes()
-	// 	err = json.Unmarshal(data, &s.storage)
-
-	// 	if err != nil {
-	// 		fmt.Println(data)
-	// 		return err
-	// 	}
-
-	// }
 	var buf bytes.Buffer
 	reader := bufio.NewReader(file)
 	for {
@@ -148,8 +134,7 @@ func (s *Server) restoreFromFile(storage *storage.Storage) error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("metrics restored")
+	defer file.Close()
 	return nil
 }
 
@@ -167,6 +152,8 @@ func (s *Server) storeToFile() error {
 
 	data, _ := json.MarshalIndent(s.storage, "", "  ")
 
+	data = append(data, '\n')
+
 	file, err := os.OpenFile(path.Join(pwd, s.dbPath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return err
@@ -182,7 +169,7 @@ func (s *Server) storeToFile() error {
 	return nil
 }
 
-func (s *Server) UpdateMetric() http.HandlerFunc {
+func (s *Server) updateMetric() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		stat := strings.Split(r.URL.String(), "/")
 		if err, statusCode := s.storage.UpdateMetric(stat); err != nil {
@@ -219,15 +206,17 @@ func (s *Server) allMetrics() http.HandlerFunc {
 		w.Header().Add("Accept-Encoding", "gzip")
 		w.Header().Add("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
-		for item := range s.storage.Storage {
+		for index := range s.storage.Storage {
+			item := s.storage.Storage[index]
 			val := ""
-			if s.storage.Storage[item].MType == "gauge" {
-				val = strconv.FormatFloat(*s.storage.Storage[item].Value, 'e', -1, 64)
+			if item.MType == "gauge" {
+				val = strconv.FormatFloat(*item.Value, 'e', -1, 64)
 			} else {
-				val = strconv.FormatInt(*s.storage.Storage[item].Delta, 32)
+				val = strconv.FormatInt(*item.Delta, 10)
 			}
-			metric := fmt.Sprintf("%s - %s - %s<br>", s.storage.Storage[item].ID, s.storage.Storage[item].MType, val)
-			io.WriteString(w, "<html><body>"+metric+"</html></body>")
+
+			metric := fmt.Sprintf("%s - %s - %s<br>", item.ID, item.MType, val)
+			io.WriteString(w, "<html><body>"+metric+"</body></html>")
 		}
 	}
 }
@@ -249,7 +238,7 @@ func (s *Server) updateMetricFromBody() http.HandlerFunc {
 
 func (s *Server) getMetricValueFromBody() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err, statusCode, value := s.storage.GetValueMetricFromBody(r); err != nil {
+		if err, statusCode, value := s.storage.GetValueMetricFromBody(r, s.key); err != nil {
 			http.Error(w, err.Error(), statusCode)
 		} else {
 			w.Header().Set("Content-Type", "application/json")
