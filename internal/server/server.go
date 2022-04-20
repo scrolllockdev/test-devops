@@ -32,6 +32,7 @@ type Server struct {
 	dbPath        string
 	restore       bool
 	storage       storage.Storage
+	db            string
 }
 
 func (s *Server) Init(cfg config.Config) *Server {
@@ -50,6 +51,8 @@ func (s *Server) Init(cfg config.Config) *Server {
 	s.storage = storage.Storage{
 		Storage: make([]model.Metric, 0),
 	}
+
+	s.db = cfg.DBpath
 
 	return s
 }
@@ -269,7 +272,7 @@ func (s *Server) Shutdown() {
 func (s *Server) ping() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		db, err := sql.Open("postgres", "path")
+		db, err := sql.Open("postgres", s.db)
 		if err != nil {
 			panic(err)
 		}
