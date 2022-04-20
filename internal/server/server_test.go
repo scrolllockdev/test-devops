@@ -9,7 +9,7 @@ import (
 	"github.com/scrolllockdev/test-devops/internal/server/storage"
 )
 
-func TestServer_restoreFromFile(t *testing.T) {
+func TestServerRestoreFromFile(t *testing.T) {
 	type fields struct {
 		r             *chi.Mux
 		server        *http.Server

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	_ "github.com/lib/pq"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/scrolllockdev/test-devops/internal/server/config"
@@ -84,6 +87,7 @@ func (s *Server) Run(ctx context.Context) {
 	s.r.Post("/update/{type}/{name}/{value}", s.UpdateMetric())
 	s.r.Get("/value/{type}/{name}", s.currentMetric())
 	s.r.Get("/", s.allMetrics())
+	s.r.Get("/ping", s.ping())
 	s.r.Post("/update/", s.updateMetricFromBody())
 	s.r.Post("/value/", s.getMetricValueFromBody())
 	go s.server.ListenAndServe()
@@ -259,5 +263,27 @@ func (s *Server) Shutdown() {
 	// store to file
 	if err := s.storeToFile(); err != nil {
 		fmt.Println(err)
+	}
+}
+
+func (s *Server) ping() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		db, err := sql.Open("postgres", "path")
+		if err != nil {
+			panic(err)
+		}
+		defer db.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := db.PingContext(ctx); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 }
