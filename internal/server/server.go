@@ -33,6 +33,7 @@ type Server struct {
 	restore       bool
 	storage       storage.Storage
 	key           string
+	db            string
 }
 
 func (s *Server) Init(cfg config.Config) *Server {
@@ -42,6 +43,7 @@ func (s *Server) Init(cfg config.Config) *Server {
 	s.storeInterval = cfg.StoreInterval
 	s.dbPath = cfg.StorePath
 	s.restore = cfg.Restore
+	s.db = cfg.DBpath
 
 	s.server = &http.Server{
 		Addr:    s.address,
