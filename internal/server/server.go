@@ -88,7 +88,7 @@ func (s *Server) Run(ctx context.Context) {
 			}(ctx)
 		}
 	}
-	s.r.Use(mw.GzipMW)
+	s.r.Use(mw.GzipMW("test"))
 	s.r.Use(s.EqualHash)
 	s.r.Post("/update/{type}/{name}/{value}", s.updateMetric())
 	s.r.Get("/value/{type}/{name}", s.currentMetric())
@@ -268,29 +268,23 @@ func (s *Server) EqualHash(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			var metric model.Metric
-
 			bodyBytes, _ := ioutil.ReadAll(r.Body)
 			r.Body.Close()
 			r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
-
 			if len(bodyBytes) == 0 {
 				next.ServeHTTP(w, r)
 			}
-
 			if err := json.Unmarshal(bodyBytes, &metric); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-
 			hashesIsEqual := mw.CheckHash(metric, s.key)
 			if !hashesIsEqual {
 				http.Error(w, "status bad request", http.StatusBadRequest)
 				return
 			}
 		}
-
 		next.ServeHTTP(w, r)
-
 	})
 }
 
@@ -308,7 +302,6 @@ func (s *Server) pingDB() http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
 		w.WriteHeader(http.StatusOK)
 		return
 	}
