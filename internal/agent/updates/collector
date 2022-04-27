@@ -1,0 +1,9 @@
+package updates
+
+import (
+	"github.com/scrolllockdev/test-devops/internal/model"
+)
+
+type Collector struct {
+	storage model.Metric
+}
