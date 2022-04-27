@@ -22,7 +22,7 @@ import (
 	s "github.com/scrolllockdev/test-devops/internal/server/storage"
 )
 
-func UpdateMetrics(db *sql.DB) http.HandlerFunc {
+func UpdateMetrics(storage *s.Storage, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Content-Type") != "application/json" {
 			http.Error(w, "invalid content type", http.StatusInternalServerError)
@@ -42,8 +42,10 @@ func UpdateMetrics(db *sql.DB) http.HandlerFunc {
 		for _, metric := range metrics {
 			if metric.MType == "gauge" {
 				metric.Delta = nil
+				storage.UpdateGaugeStorage(metric.ID, *metric.Value)
 			} else if metric.MType == "counter" {
 				metric.Value = nil
+				storage.UpdateCounterStorage(metric.ID, *metric.Delta)
 			} else {
 				http.Error(w, "bad request", http.StatusBadRequest)
 				return

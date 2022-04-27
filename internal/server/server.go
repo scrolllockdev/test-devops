@@ -102,7 +102,7 @@ func (server *Server) Run(ctx context.Context) {
 
 	database := server.r.Group(nil)
 	database.Get("/ping", handlers.PingDB(server.Config.DatabaseDsn))
-	database.Post("/updates/", handlers.UpdateMetrics(server.Database))
+	database.Post("/updates/", handlers.UpdateMetrics(&server.Storage, server.Database))
 
 	go server.server.ListenAndServe()
 
