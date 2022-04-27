@@ -10,11 +10,11 @@ import (
 type Config struct {
 	ServerAddress string        `env:"ADDRESS"`
 	StoreInterval time.Duration `env:"STORE_INTERVAL"`
-	StorePath     string        `env:"STORE_FILE"`
+	StoragePath   string        `env:"STORE_FILE"`
 	Restore       bool          `env:"RESTORE"`
 	Shutdown      time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"5s"`
-	DBpath        string        `env:"DATABASE_DSN"`
 	Key           string        `env:"KEY"`
+	DatabaseDsn   string        `env:"DATABASE_DSN"`
 }
 
 func (config *Config) ReadConfig() error {
@@ -22,19 +22,19 @@ func (config *Config) ReadConfig() error {
 	flag.StringVar(&config.ServerAddress, "a", "127.0.0.1:8080", "server address")
 	flag.BoolVar(&config.Restore, "r", true, "restore from db file")
 	flag.DurationVar(&config.StoreInterval, "i", 300*time.Second, "store interval")
-	flag.StringVar(&config.StorePath, "f", "tmp/devops-metrics-db.json", "path to db file")
-	flag.StringVar(&config.DBpath, "d", "", "postgres")
+	flag.StringVar(&config.StoragePath, "f", "tmp/devops-metrics-db.json", "path to db file")
 	flag.StringVar(&config.Key, "k", "", "key for sha256")
+	flag.StringVar(&config.DatabaseDsn, "d", "", "database dsn")
 	flag.Parse()
+
+	databaseDsn, exist := os.LookupEnv("DATABASE_DSN")
+	if exist {
+		config.DatabaseDsn = databaseDsn
+	}
 
 	key, exist := os.LookupEnv("KEY")
 	if exist {
 		config.Key = key
-	}
-
-	dbPath, exist := os.LookupEnv("DATABASE_DSN")
-	if exist {
-		config.DBpath = dbPath
 	}
 
 	serverAddress, exist := os.LookupEnv("ADDRESS")
@@ -44,7 +44,7 @@ func (config *Config) ReadConfig() error {
 
 	storePath, exist := os.LookupEnv("STORE_FILE")
 	if exist {
-		config.StorePath = storePath
+		config.StoragePath = storePath
 	}
 
 	restore, exist := os.LookupEnv("RESTORE")

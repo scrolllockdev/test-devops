@@ -16,18 +16,19 @@ import (
 )
 
 type Agent struct {
-	client         *http.Client
-	pollInterval   time.Duration
-	reportInterval time.Duration
-	endpoint       string
-	key            string
+	client          *http.Client
+	pollInterval    time.Duration
+	reportInterval  time.Duration
+	endpoint        string
+	updatesEndpoint string
+	key             string
 }
 
-func (a *Agent) postRequest(ctx context.Context, value []byte) error {
+func (a *Agent) postRequest(ctx context.Context, value []byte, endpoint string) error {
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, a.endpoint, bytes.NewBuffer(value))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(value))
 	if err != nil {
-		fmt.Printf("error creating a new request with context %s: %v", a.endpoint, err)
+		fmt.Printf("error creating a new request with context %s: %v", endpoint, err)
 		return err
 	}
 
@@ -35,7 +36,7 @@ func (a *Agent) postRequest(ctx context.Context, value []byte) error {
 
 	response, err := a.client.Do(request)
 	if err != nil {
-		fmt.Printf("error sending the request %s: %v \n", a.endpoint, err)
+		fmt.Printf("error sending the request %s: %v \n", endpoint, err)
 		return err
 	}
 	defer response.Body.Close()
@@ -54,66 +55,76 @@ func (a *Agent) Init(cfg config.Config) *Agent {
 	a.client.Transport = transport
 	a.pollInterval = cfg.PollInterval
 	a.reportInterval = cfg.ReportInterval
-	a.endpoint = getEndpoint(cfg.ServerAddress)
+	a.endpoint = getEndpoint(cfg.ServerAddress, "update")
+	a.updatesEndpoint = getEndpoint(cfg.ServerAddress, "updates")
 	a.key = cfg.Key
-
 	return a
 }
 
 func (a *Agent) Run(ctx context.Context) {
 	pollTicker := time.NewTicker(a.pollInterval)
-	defer pollTicker.Stop()
-
 	reportTicker := time.NewTicker(a.reportInterval)
-	defer reportTicker.Stop()
-
-	done := make(chan bool)
-
 	metrics := storage.Storage{
 		GaugeStorage:   make(map[string]storage.Gauge),
 		CounterStorage: make(map[string]storage.Counter),
 	}
 	var counter storage.Counter = 0
-
-	for {
-		select {
-		case <-done:
-			fmt.Println("Done!")
-			return
-		case t := <-pollTicker.C:
-			var rtm runtime.MemStats
-			runtime.ReadMemStats(&rtm)
-			counter++
-			metrics.SaveMetrics(rtm, storage.RandomValue(), counter)
-			fmt.Printf("metrics are collected in %s\n", t)
-		case t := <-reportTicker.C:
-			counter = 0
-			for key, value := range metrics.GaugeStorage {
-				body := converter.GaugeToJSON(key, value, a.key)
-				if err := a.postRequest(ctx, body); err != nil {
+	go func(ctx context.Context) {
+		for {
+			select {
+			case t := <-pollTicker.C:
+				var rtm runtime.MemStats
+				runtime.ReadMemStats(&rtm)
+				counter++
+				metrics.SaveMetrics(rtm, storage.RandomValue(), counter)
+				fmt.Printf("metrics are collected in %s\n", t)
+				metricsArray, err := converter.StorageToArray(metrics, a.key)
+				if err != nil {
 					fmt.Println(err)
 				}
-			}
-			fmt.Printf("gauge metrics are sended in %s\n", t)
-
-			for key, value := range metrics.CounterStorage {
-				body := converter.CounterToJSON(key, value, a.key)
-				if err := a.postRequest(ctx, body); err != nil {
+				if err := a.postRequest(ctx, metricsArray, a.updatesEndpoint); err != nil {
 					fmt.Println(err)
 				}
+			case t := <-reportTicker.C:
+				counter = 0
+				for key, value := range metrics.GaugeStorage {
+					body, err := converter.GaugeToJSON(key, value, a.key)
+					if err != nil {
+						fmt.Println(err)
+						return
+					}
+					if err := a.postRequest(ctx, body, a.endpoint); err != nil {
+						fmt.Println(err)
+					}
+				}
+				fmt.Printf("gauge metrics are sended in %s\n", t)
+				for key, value := range metrics.CounterStorage {
+					body, err := converter.CounterToJSON(key, value, a.key)
+					if err != nil {
+						fmt.Println(err)
+						return
+					}
+					if err := a.postRequest(ctx, body, a.endpoint); err != nil {
+						fmt.Println(err)
+					}
+				}
+				fmt.Printf("counter metrics are sended in %s\n", t)
+			case <-ctx.Done():
+				pollTicker.Stop()
+				reportTicker.Stop()
+				fmt.Println("Tickers stopped!")
+				return
 			}
-			fmt.Printf("counter metrics are sended in %s\n", t)
-
 		}
-	}
+	}(ctx)
 }
 
-func getEndpoint(address string) string {
+func getEndpoint(address, route string) string {
 
 	endpoint := url.URL{
 		Scheme: "http",
 		Host:   address,
-		Path:   path.Join("update"),
+		Path:   path.Join(route),
 	}
 
 	return endpoint.String() + "/"

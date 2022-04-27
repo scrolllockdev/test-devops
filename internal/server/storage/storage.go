@@ -1,24 +1,86 @@
 package storage
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path"
-	"strconv"
 
-	mw "github.com/scrolllockdev/test-devops/internal/server/middlewares"
-	"github.com/scrolllockdev/test-devops/internal/server/model"
+	"github.com/scrolllockdev/test-devops/internal/model"
 )
 
 type Storage struct {
-	Storage []model.Metric `json:"Storage"`
+	Storage []model.Metric `json:"storage"`
 }
 
-func (s *Storage) DirExist(path string) (bool, error) {
+func (storage *Storage) RestoreFromFile(storePath string) error {
+	pwd, _ := os.Getwd()
+	tmpDirEx, err := storage.DirExist(path.Join(pwd, "tmp"))
+	if err != nil {
+		return err
+	}
+	if !tmpDirEx {
+		fmt.Println("nothing to restore")
+		return nil
+	}
+	file, err := os.OpenFile(path.Join(pwd, storePath), os.O_RDONLY, 0755)
+	var buf bytes.Buffer
+	reader := bufio.NewReader(file)
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			if err == io.EOF {
+				buf.Write(line)
+				break
+			} else {
+				return err
+			}
+		}
+		buf.Write(line)
+	}
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(buf.Bytes(), &storage)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	fmt.Println("metrics restored")
+	return nil
+}
+
+func (storage *Storage) StoreToFile(storePath string) error {
+	pwd, _ := os.Getwd()
+	tmpDirEx, err := storage.DirExist(path.Join(pwd, "tmp"))
+	if err != nil {
+		return err
+	}
+	if !tmpDirEx {
+		if err := storage.CreateDir(); err != nil {
+			return err
+		}
+	}
+	data, _ := json.MarshalIndent(storage, "", "  ")
+	data = append(data, '\n')
+	file, err := os.OpenFile(path.Join(pwd, storePath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+	_, err = file.Write(data)
+	if err != nil {
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (storage *Storage) DirExist(path string) (bool, error) {
 	_, err := os.Stat(path)
 	if err == nil {
 		return true, nil
@@ -29,7 +91,7 @@ func (s *Storage) DirExist(path string) (bool, error) {
 	return false, err
 }
 
-func (s *Storage) CreateDir() error {
+func (storage *Storage) CreateDir() error {
 	pwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -38,181 +100,44 @@ func (s *Storage) CreateDir() error {
 	return nil
 }
 
-func (s *Storage) UpdateMetric(stat []string) (error, int) {
-	if len(stat) != 5 {
-		return errors.New("page not found"), http.StatusNotFound
-	} else {
-		switch stat[2] {
-		case "gauge":
-			value, err := strconv.ParseFloat(stat[4], 64)
-			if err != nil {
-				return err, http.StatusBadRequest
-			}
-			metricIsUpdated := false
-			for index, item := range s.Storage {
-				if item.ID == stat[3] && item.MType == stat[2] {
-					s.Storage[index].Value = &value
-					metricIsUpdated = true
-					break
-				}
-			}
-
-			if !metricIsUpdated {
-				metric := model.Metric{
-					ID:    stat[3],
-					MType: "gauge",
-					Value: &value,
-				}
-
-				s.Storage = append(s.Storage, metric)
-			}
-
-			return nil, http.StatusOK
-		case "counter":
-			value, err := strconv.ParseInt(stat[4], 10, 64)
-			if err != nil {
-				return err, http.StatusBadRequest
-			}
-			metricIsUpdated := false
-			for index, item := range s.Storage {
-				if item.ID == stat[3] && item.MType == stat[2] {
-					delta := *s.Storage[index].Delta
-					delta += value
-					s.Storage[index].Delta = &delta
-					metricIsUpdated = true
-					break
-				}
-			}
-			if !metricIsUpdated {
-				metric := model.Metric{
-					ID:    stat[3],
-					MType: "counter",
-					Delta: &value,
-				}
-				s.Storage = append(s.Storage, metric)
-			}
-			return nil, http.StatusOK
-		default:
-			return errors.New("status not implemented"), http.StatusNotImplemented
+func (storage *Storage) UpdateCounterStorage(id string, value int64) {
+	metricType := "counter"
+	metricIsUpdated := false
+	for index, item := range storage.Storage {
+		if item.ID == id && item.MType == metricType {
+			delta := *storage.Storage[index].Delta
+			delta += value
+			storage.Storage[index].Delta = &delta
+			metricIsUpdated = true
+			break
 		}
+	}
+	if !metricIsUpdated {
+		metric := model.Metric{
+			ID:    id,
+			MType: metricType,
+			Delta: &value,
+		}
+		storage.Storage = append(storage.Storage, metric)
 	}
 }
 
-func (s *Storage) GetMetric(stat []string) (error, int, []byte) {
-	if len(stat) != 4 {
-		return errors.New("page not found"), http.StatusNotFound, nil
-	} else {
-		switch stat[2] {
-		case "gauge":
-			for _, item := range s.Storage {
-				if stat[3] == item.ID && stat[2] == item.MType {
-					return nil, http.StatusOK, []byte(fmt.Sprintf("%v", *item.Value))
-				}
-			}
-			return errors.New("metric not found"), http.StatusNotFound, nil
-		case "counter":
-			metricIndex := 0
-			metricFounded := false
-			for index, item := range s.Storage {
-				if item.ID == stat[3] && item.MType == stat[2] {
-					metricIndex = index
-					metricFounded = true
-					break
-				}
-			}
-			if !metricFounded {
-				return errors.New("metric not found"), http.StatusNotFound, nil
-			}
-			return nil, http.StatusOK, []byte(strconv.FormatInt(*s.Storage[metricIndex].Delta, 10))
-		default:
-			return errors.New("metric not found"), http.StatusNotFound, nil
+func (storage *Storage) UpdateGaugeStorage(id string, value float64) {
+	metricType := "gauge"
+	metricIsUpdated := false
+	for index, item := range storage.Storage {
+		if item.ID == id && item.MType == metricType {
+			storage.Storage[index].Value = &value
+			metricIsUpdated = true
+			break
 		}
 	}
-}
-
-func (s *Storage) UpdateMetricFromRequest(r *http.Request) (error, int) {
-
-	if r.Header.Get("Content-Type") != "application/json" {
-		return errors.New("invalid content type"), http.StatusInternalServerError
+	if !metricIsUpdated {
+		metric := model.Metric{
+			ID:    id,
+			MType: metricType,
+			Value: &value,
+		}
+		storage.Storage = append(storage.Storage, metric)
 	}
-
-	var metric model.Metric
-
-	if err := json.NewDecoder(r.Body).Decode(&metric); err != nil {
-		return err, http.StatusBadRequest
-	}
-
-	switch metric.MType {
-	case "gauge":
-		if metric.Value == nil {
-			return errors.New("bad request"), http.StatusBadRequest
-		}
-		metricIsUpdated := false
-		for index, item := range s.Storage {
-			if item.ID == metric.ID && item.MType == metric.MType {
-				s.Storage[index].Value = metric.Value
-				s.Storage[index].IncomingHash = metric.Hash
-				metricIsUpdated = true
-				break
-			}
-		}
-		if !metricIsUpdated {
-			s.Storage = append(s.Storage, metric)
-		}
-		return nil, http.StatusOK
-	case "counter":
-		if metric.Delta == nil {
-			return errors.New("bad request"), http.StatusBadRequest
-		}
-		metricIsUpdated := false
-		for index, item := range s.Storage {
-			if item.ID == metric.ID && item.MType == metric.MType {
-				delta := *s.Storage[index].Delta
-				delta += *metric.Delta
-				s.Storage[index].Delta = &delta
-				s.Storage[index].IncomingHash = metric.Hash
-				metricIsUpdated = true
-				break
-			}
-		}
-		if !metricIsUpdated {
-			s.Storage = append(s.Storage, metric)
-		}
-		return nil, http.StatusOK
-	default:
-		return errors.New("not implemented"), http.StatusNotImplemented
-	}
-}
-
-func (s *Storage) GetValueMetricFromBody(r *http.Request, key string) (error, int, []byte) {
-
-	b, err := io.ReadAll(r.Body)
-	if err != nil {
-		return err, http.StatusBadRequest, nil
-	}
-	defer r.Body.Close()
-
-	var metric model.Metric
-	if err := json.Unmarshal(b, &metric); err != nil {
-		return err, http.StatusBadRequest, nil
-	}
-
-	for _, item := range s.Storage {
-		if item.ID == metric.ID && item.MType == metric.MType {
-			if len(key) != 0 {
-				fmt.Println(item)
-				hash, err := mw.Hash(item, key)
-				if err != nil {
-					return err, http.StatusBadRequest, nil
-				}
-				item.Hash = hash
-			}
-			metricJSON, err := json.Marshal(item)
-			if err != nil {
-				return err, http.StatusInternalServerError, nil
-			}
-			return nil, http.StatusOK, metricJSON
-		}
-	}
-	return errors.New("not found"), http.StatusNotFound, nil
 }

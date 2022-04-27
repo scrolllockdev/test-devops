@@ -50,11 +50,3 @@ func (s *Storage) SaveMetrics(stats runtime.MemStats, randomValue Gauge, counter
 	s.CounterStorage["PollCount"] = counter
 
 }
-
-func (s *Storage) getGauges() map[string]Gauge {
-	return s.GaugeStorage
-}
-
-func (s *Storage) getCounters() map[string]Counter {
-	return s.CounterStorage
-}
