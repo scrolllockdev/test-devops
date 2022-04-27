@@ -16,6 +16,14 @@ type Metrics struct {
 	Hash  string   `json:"hash,omitempty"`  // значение хеш-функции
 }
 
+func gaugeHashModel(name string, value float64) string {
+	return fmt.Sprintf("%s:gauge:%f", name, value)
+}
+
+func counterHashModel(name string, value int64) string {
+	return fmt.Sprintf("%s:counter:%d", name, value)
+}
+
 func StorageToArray(storage storage.Storage, secretKey string) ([]byte, error) {
 	s := []Metrics{}
 	for key, value := range storage.GaugeStorage {
@@ -25,7 +33,7 @@ func StorageToArray(storage storage.Storage, secretKey string) ([]byte, error) {
 			MType: "gauge",
 			Delta: nil,
 			Value: &gVal,
-			Hash:  hash.Hash(fmt.Sprintf("%s:gauge:%f", key, value), key),
+			Hash:  hash.Hash(gaugeHashModel(key, gVal), secretKey),
 		}
 		s = append(s, gMetric)
 	}
@@ -36,17 +44,15 @@ func StorageToArray(storage storage.Storage, secretKey string) ([]byte, error) {
 			MType: "counter",
 			Delta: &cVal,
 			Value: nil,
-			Hash:  hash.Hash(fmt.Sprintf("%s:counter:%d", key, cVal), key),
+			Hash:  hash.Hash(counterHashModel(key, cVal), secretKey),
 		}
 		s = append(s, cMetric)
 	}
-
 	metrcisArray, err := json.Marshal(s)
 	if err != nil {
 		fmt.Println("something wrong with marshal metrics array", err)
 		return nil, err
 	}
-
 	return metrcisArray, nil
 }
 
@@ -60,7 +66,7 @@ func GaugeToJSON(name string, value storage.Gauge, key string) ([]byte, error) {
 	}
 
 	if key != "" {
-		metric.Hash = hash.Hash(fmt.Sprintf("%s:gauge:%f", name, value), key)
+		metric.Hash = hash.Hash(gaugeHashModel(name, gValue), key)
 	}
 
 	gaugeJSON, err := json.Marshal(metric)
@@ -81,7 +87,7 @@ func CounterToJSON(name string, value storage.Counter, key string) ([]byte, erro
 	}
 
 	if key != "" {
-		metric.Hash = hash.Hash(fmt.Sprintf("%s:counter:%d", name, mValue), key)
+		metric.Hash = hash.Hash(counterHashModel(name, mValue), key)
 	}
 
 	counterJSON, err := json.Marshal(metric)

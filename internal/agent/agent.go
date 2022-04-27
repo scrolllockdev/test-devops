@@ -78,6 +78,14 @@ func (a *Agent) Run(ctx context.Context) {
 				counter++
 				metrics.SaveMetrics(rtm, storage.RandomValue(), counter)
 				fmt.Printf("metrics are collected in %s\n", t)
+				// metricsArray, err := converter.StorageToArray(metrics, a.key)
+				// if err != nil {
+				// 	fmt.Println(err)
+				// }
+				// if err := a.postRequest(ctx, metricsArray, a.updatesEndpoint); err != nil {
+				// 	fmt.Println(err)
+				// }
+			case t := <-reportTicker.C:
 				metricsArray, err := converter.StorageToArray(metrics, a.key)
 				if err != nil {
 					fmt.Println(err)
@@ -85,29 +93,28 @@ func (a *Agent) Run(ctx context.Context) {
 				if err := a.postRequest(ctx, metricsArray, a.updatesEndpoint); err != nil {
 					fmt.Println(err)
 				}
-			case t := <-reportTicker.C:
-				counter = 0
-				for key, value := range metrics.GaugeStorage {
-					body, err := converter.GaugeToJSON(key, value, a.key)
-					if err != nil {
-						fmt.Println(err)
-						return
-					}
-					if err := a.postRequest(ctx, body, a.endpoint); err != nil {
-						fmt.Println(err)
-					}
-				}
-				fmt.Printf("gauge metrics are sended in %s\n", t)
-				for key, value := range metrics.CounterStorage {
-					body, err := converter.CounterToJSON(key, value, a.key)
-					if err != nil {
-						fmt.Println(err)
-						return
-					}
-					if err := a.postRequest(ctx, body, a.endpoint); err != nil {
-						fmt.Println(err)
-					}
-				}
+				// counter = 0
+				// for key, value := range metrics.GaugeStorage {
+				// 	body, err := converter.GaugeToJSON(key, value, a.key)
+				// 	if err != nil {
+				// 		fmt.Println(err)
+				// 		return
+				// 	}
+				// 	if err := a.postRequest(ctx, body, a.endpoint); err != nil {
+				// 		fmt.Println(err)
+				// 	}
+				// }
+				// fmt.Printf("gauge metrics are sended in %s\n", t)
+				// for key, value := range metrics.CounterStorage {
+				// 	body, err := converter.CounterToJSON(key, value, a.key)
+				// 	if err != nil {
+				// 		fmt.Println(err)
+				// 		return
+				// 	}
+				// 	if err := a.postRequest(ctx, body, a.endpoint); err != nil {
+				// 		fmt.Println(err)
+				// 	}
+				// }
 				fmt.Printf("counter metrics are sended in %s\n", t)
 			case <-ctx.Done():
 				pollTicker.Stop()
