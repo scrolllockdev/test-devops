@@ -12,12 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/scrolllockdev/test-devops/internal/model"
-	"github.com/scrolllockdev/test-devops/internal/server/database"
-
 	_ "github.com/lib/pq"
 
+	"github.com/scrolllockdev/test-devops/internal/model"
 	"github.com/scrolllockdev/test-devops/internal/server/config"
+	"github.com/scrolllockdev/test-devops/internal/server/database"
 	"github.com/scrolllockdev/test-devops/internal/server/middlewares"
 	s "github.com/scrolllockdev/test-devops/internal/server/storage"
 )

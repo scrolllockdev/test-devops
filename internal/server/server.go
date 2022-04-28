@@ -3,12 +3,13 @@ package server
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	_ "github.com/lib/pq"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/scrolllockdev/test-devops/internal/model"
 	"github.com/scrolllockdev/test-devops/internal/server/config"
@@ -17,6 +18,11 @@ import (
 	"github.com/scrolllockdev/test-devops/internal/server/middlewares"
 	"github.com/scrolllockdev/test-devops/internal/server/storage"
 )
+
+func InitLogger() {
+	log.SetFormatter(&log.TextFormatter{})
+	log.SetOutput(os.Stdout)
+}
 
 type Server struct {
 	r        *chi.Mux
@@ -28,9 +34,11 @@ type Server struct {
 
 func (server *Server) Init() *Server {
 
+	InitLogger()
+
 	cfg := config.Config{}
 	if err := cfg.ReadConfig(); err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	server.Config = cfg
@@ -46,12 +54,12 @@ func (server *Server) Init() *Server {
 	if server.Config.DatabaseDsn != "" {
 		db, err := sql.Open("postgres", server.Config.DatabaseDsn)
 		if err != nil {
-			panic(err)
+			log.Fatalln(err)
 		} else {
 			server.Database = db
 		}
 	} else {
-		fmt.Println("No connections to db")
+		log.Infoln("there is no connection to database")
 		server.Database = nil
 	}
 
@@ -63,7 +71,9 @@ func (server *Server) Run(ctx context.Context) {
 		if server.Config.Restore {
 			err := server.Storage.RestoreFromFile(server.Config.StoragePath)
 			if err != nil {
-				fmt.Println(err)
+				log.Errorln(err)
+			} else {
+				log.Infoln("metrics successfuly restored")
 			}
 		}
 		if server.Config.StoreInterval > 0*time.Second {
@@ -73,7 +83,7 @@ func (server *Server) Run(ctx context.Context) {
 					select {
 					case <-storeTicker.C:
 						if err := server.Storage.StoreToFile(server.Config.StoragePath); err != nil {
-							fmt.Println(err)
+							log.Errorln(err)
 						}
 					case <-ctx.Done():
 						storeTicker.Stop()
@@ -86,7 +96,9 @@ func (server *Server) Run(ctx context.Context) {
 
 	// creation storage table
 	if err := database.CreateStorageTable(ctx, server.Database, "storage"); err != nil {
-		fmt.Println(err)
+		log.Errorln(err)
+	} else {
+		log.Infoln("table successfully created")
 	}
 
 	server.r.Use(middlewares.Gzip)
@@ -111,10 +123,10 @@ func (server *Server) Shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := server.server.Shutdown(ctx); err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 	if err := server.Storage.StoreToFile(server.Config.StoragePath); err != nil {
-		fmt.Println(err)
+		log.Errorln(err)
 	}
 	if server.Database != nil {
 		server.Database.Close()

@@ -9,11 +9,11 @@ import (
 )
 
 type Metrics struct {
-	ID    string   `json:"id"`              // имя метрики
-	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
-	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
-	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
-	Hash  string   `json:"hash,omitempty"`  // значение хеш-функции
+	ID    string   `json:"id"`
+	MType string   `json:"type"`
+	Delta *int64   `json:"delta,omitempty"`
+	Value *float64 `json:"value,omitempty"`
+	Hash  string   `json:"hash,omitempty"`
 }
 
 func gaugeHashModel(name string, value float64) string {
@@ -50,7 +50,6 @@ func StorageToArray(storage storage.Storage, secretKey string) ([]byte, error) {
 	}
 	metrcisArray, err := json.Marshal(s)
 	if err != nil {
-		fmt.Println("something wrong with marshal metrics array", err)
 		return nil, err
 	}
 	return metrcisArray, nil
@@ -71,7 +70,6 @@ func GaugeToJSON(name string, value storage.Gauge, key string) ([]byte, error) {
 
 	gaugeJSON, err := json.Marshal(metric)
 	if err != nil {
-		fmt.Println("something wrong with marshal gauge value", err)
 		return nil, err
 	}
 	return gaugeJSON, nil
@@ -92,7 +90,6 @@ func CounterToJSON(name string, value storage.Counter, key string) ([]byte, erro
 
 	counterJSON, err := json.Marshal(metric)
 	if err != nil {
-		fmt.Println("something wrong with marshal counter value", err)
 		return nil, err
 	}
 

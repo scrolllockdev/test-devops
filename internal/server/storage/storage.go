@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"os"
 	"path"
@@ -23,8 +23,7 @@ func (storage *Storage) RestoreFromFile(storePath string) error {
 		return err
 	}
 	if !tmpDirEx {
-		fmt.Println("nothing to restore")
-		return nil
+		return errors.New("nothing to restore")
 	}
 	file, err := os.OpenFile(path.Join(pwd, storePath), os.O_RDONLY, 0755)
 	var buf bytes.Buffer
@@ -49,7 +48,6 @@ func (storage *Storage) RestoreFromFile(storePath string) error {
 		return err
 	}
 	defer file.Close()
-	fmt.Println("metrics restored")
 	return nil
 }
 

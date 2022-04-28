@@ -3,17 +3,24 @@ package agent
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"runtime"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/scrolllockdev/test-devops/internal/agent/config"
 	"github.com/scrolllockdev/test-devops/internal/agent/converter"
 	"github.com/scrolllockdev/test-devops/internal/agent/storage"
 )
+
+func InitLogger() {
+	log.SetFormatter(&log.TextFormatter{})
+	log.SetOutput(os.Stdout)
+}
 
 type Agent struct {
 	client          *http.Client
@@ -24,29 +31,27 @@ type Agent struct {
 	key             string
 }
 
-func (a *Agent) postRequest(ctx context.Context, value []byte, endpoint string) error {
+func (a *Agent) postRequest(ctx context.Context, value []byte, endpoint string) (int, error) {
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(value))
 	if err != nil {
-		fmt.Printf("error creating a new request with context %s: %v", endpoint, err)
-		return err
+		return 0, err
 	}
 
 	request.Header.Set("Content-Type", "application/json")
 
 	response, err := a.client.Do(request)
 	if err != nil {
-		fmt.Printf("error sending the request %s: %v \n", endpoint, err)
-		return err
+		return 0, err
 	}
 	defer response.Body.Close()
-
-	fmt.Printf("response status-code %s\n", response.Status)
-
-	return nil
+	return response.StatusCode, nil
 }
 
 func (a *Agent) Init(cfg config.Config) *Agent {
+
+	InitLogger()
+
 	a.client = &http.Client{}
 
 	transport := &http.Transport{}
@@ -77,49 +82,21 @@ func (a *Agent) Run(ctx context.Context) {
 				runtime.ReadMemStats(&rtm)
 				counter++
 				metrics.SaveMetrics(rtm, storage.RandomValue(), counter)
-				fmt.Printf("metrics are collected in %s\n", t)
-				// metricsArray, err := converter.StorageToArray(metrics, a.key)
-				// if err != nil {
-				// 	fmt.Println(err)
-				// }
-				// if err := a.postRequest(ctx, metricsArray, a.updatesEndpoint); err != nil {
-				// 	fmt.Println(err)
-				// }
-			case t := <-reportTicker.C:
+				log.Infof("metrics are collected in %s\n", t)
+			case <-reportTicker.C:
 				metricsArray, err := converter.StorageToArray(metrics, a.key)
 				if err != nil {
-					fmt.Println(err)
+					log.Errorln(err)
 				}
-				if err := a.postRequest(ctx, metricsArray, a.updatesEndpoint); err != nil {
-					fmt.Println(err)
+				if statusCode, err := a.postRequest(ctx, metricsArray, a.updatesEndpoint); err != nil {
+					log.Errorln(err)
+				} else {
+					log.Infof("response status-code - %d\n", statusCode)
 				}
-				// counter = 0
-				// for key, value := range metrics.GaugeStorage {
-				// 	body, err := converter.GaugeToJSON(key, value, a.key)
-				// 	if err != nil {
-				// 		fmt.Println(err)
-				// 		return
-				// 	}
-				// 	if err := a.postRequest(ctx, body, a.endpoint); err != nil {
-				// 		fmt.Println(err)
-				// 	}
-				// }
-				// fmt.Printf("gauge metrics are sended in %s\n", t)
-				// for key, value := range metrics.CounterStorage {
-				// 	body, err := converter.CounterToJSON(key, value, a.key)
-				// 	if err != nil {
-				// 		fmt.Println(err)
-				// 		return
-				// 	}
-				// 	if err := a.postRequest(ctx, body, a.endpoint); err != nil {
-				// 		fmt.Println(err)
-				// 	}
-				// }
-				fmt.Printf("counter metrics are sended in %s\n", t)
-			case <-ctx.Done():
+			case t := <-ctx.Done():
 				pollTicker.Stop()
 				reportTicker.Stop()
-				fmt.Println("Tickers stopped!")
+				log.Infof("tickers stopped in %s\n", t)
 				return
 			}
 		}

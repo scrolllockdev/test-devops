@@ -4,11 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
-
-	"github.com/scrolllockdev/test-devops/internal/model"
 
 	_ "github.com/lib/pq"
+
+	"github.com/scrolllockdev/test-devops/internal/model"
 )
 
 func CreateStorageTable(ctx context.Context, db *sql.DB, tableName string) error {
@@ -19,7 +18,6 @@ func CreateStorageTable(ctx context.Context, db *sql.DB, tableName string) error
 	if err != nil {
 		return err
 	}
-	fmt.Println("table successfully created")
 
 	return nil
 }
